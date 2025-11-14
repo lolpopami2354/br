@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mini Proxy Browser</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; }
+    header { display: flex; gap: 8px; padding: 8px; background: #111; color: #fff; align-items: center; }
+    input[type=url] { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #333; background: #222; color: #fff; }
+    button { padding: 8px 12px; border: none; border-radius: 6px; background: #4a7; color: #041; font-weight: 600; }
+    iframe { width: 100%; height: calc(100% - 50px); border: none; background: #000; }
+    .bar { display: flex; gap: 8px; align-items: center; }
+    .status { margin-left: auto; font-size: 12px; opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <button id="backBtn">Back</button>
+      <button id="forwardBtn">Forward</button>
+      <button id="reloadBtn">Reload</button>
+    </div>
+    <input id="urlInput" type="url" placeholder="https://example.com" />
+    <button id="goBtn">Go</button>
+    <div class="status" id="status">Idle</div>
+  </header>
+  <iframe id="view"></iframe>
+
+  <script>
+    const proxyBase = 'http://localhost:3000/proxy?url=';
+    const urlInput = document.getElementById('urlInput');
+    const iframe = document.getElementById('view');
+    const status = document.getElementById('status');
+
+    const historyStack = [];
+    let historyIndex = -1;
+
+    function loadUrl(raw) {
+      try {
+        const u = new URL(raw);
+        if (!['http:', 'https:'].includes(u.protocol)) throw new Error('Use http/https');
+      } catch (e) {
+        alert('Please enter a valid http or https URL');
+        return;
+      }
+      status.textContent = 'Loading...';
+      const target = proxyBase + encodeURIComponent(raw);
+      iframe.src = target;
+    }
+
+    document.getElementById('goBtn').addEventListener('click', () => {
+      const raw = urlInput.value.trim();
+      if (!raw) return;
+      loadUrl(raw);
+
+      // Update history
+      if (historyIndex < historyStack.length - 1) {
+        historyStack.splice(historyIndex + 1);
+      }
+      historyStack.push(raw);
+      historyIndex = historyStack.length - 1;
+    });
+
+    document.getElementById('reloadBtn').addEventListener('click', () => {
+      if (historyIndex >= 0) loadUrl(historyStack[historyIndex]);
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      if (historyIndex > 0) {
+        historyIndex -= 1;
+        urlInput.value = historyStack[historyIndex];
+        loadUrl(historyStack[historyIndex]);
+      }
+    });
+
+    document.getElementById('forwardBtn').addEventListener('click', () => {
+      if (historyIndex < historyStack.length - 1) {
+        historyIndex += 1;
+        urlInput.value = historyStack[historyIndex];
+        loadUrl(historyStack[historyIndex]);
+      }
+    });
+
+    iframe.addEventListener('load', () => {
+      status.textContent = 'Done';
+      // Update address bar if iframe redirected
+      try {
+        const currentSrc = new URL(iframe.src);
+        const q = new URLSearchParams(currentSrc.search);
+        const target = q.get('url');
+        if (target) urlInput.value = target;
+      } catch (_) {}
+    });
+  </script>
+</body>
+</html>
